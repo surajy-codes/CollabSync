@@ -28,12 +28,10 @@ app:
     url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
   jwt:
     secret: ${JWT_SECRET}
-    #collabsync-super-secret-key-for-jwt-signing-must-be-long-enough-256bits
     access-token-expiry: 900000
     refresh-token-expiry: 604800000
   minio:
     url: http://localhost:9000
     access-key: ${MINIO_ACCESS_KEY}
     secret-key: ${MINIO_SECRET_KEY}
-    #minioadmin
     bucket: collabsync
