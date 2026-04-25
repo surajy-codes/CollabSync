@@ -13,17 +13,17 @@ const STATUS_LABELS = {
 }
 
 const STATUS_COLORS = {
-  TODO: 'border-gray-600',
-  IN_PROGRESS: 'border-blue-500',
-  IN_REVIEW: 'border-yellow-500',
-  DONE: 'border-green-500'
+  TODO: 'border-t-gray-500',
+  IN_PROGRESS: 'border-t-blue-500',
+  IN_REVIEW: 'border-t-yellow-500',
+  DONE: 'border-t-green-500'
 }
 
-const PRIORITY_COLORS = {
-  LOW: 'text-gray-400',
-  MEDIUM: 'text-blue-400',
-  HIGH: 'text-orange-400',
-  CRITICAL: 'text-red-400'
+const PRIORITY_BADGE = {
+  LOW: 'bg-gray-700 text-gray-300',
+  MEDIUM: 'bg-blue-900 text-blue-300',
+  HIGH: 'bg-orange-900 text-orange-300',
+  CRITICAL: 'bg-red-900 text-red-300'
 }
 
 export default function ProjectBoard() {
@@ -36,6 +36,9 @@ export default function ProjectBoard() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [form, setForm] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' })
   const [aiLoading, setAiLoading] = useState(false)
+  const [weeklySummary, setWeeklySummary] = useState('')
+  const [showSummary, setShowSummary] = useState(false)
+  const [summaryLoading, setSummaryLoading] = useState(false)
 
   useEffect(() => {
     api.get(`/projects/${projectId}`).then(res => setProject(res.data))
@@ -54,10 +57,19 @@ export default function ProjectBoard() {
     loadTasks()
   }
 
-  const updateStatus = async (taskId, newStatus) => {
-    const task = tasks.find(t => t.id === taskId)
-    await api.put(`/tasks/${taskId}`, { ...task, status: newStatus })
+  const updateStatus = async (task, newStatus) => {
+    await api.put(`/tasks/${task.id}`, {
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      status: newStatus,
+      assigneeId: task.assigneeId,
+      dueDate: task.dueDate
+    })
     loadTasks()
+    if (selectedTask?.id === task.id) {
+      setSelectedTask({ ...selectedTask, status: newStatus })
+    }
   }
 
   const generateDescription = async () => {
@@ -74,20 +86,38 @@ export default function ProjectBoard() {
     }
   }
 
+  const generateWeeklySummary = async () => {
+    setSummaryLoading(true)
+    setShowSummary(true)
+    try {
+      const res = await api.post(`/ai/weekly-summary/${projectId}`)
+      setWeeklySummary(res.data.summary)
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
   const tasksByStatus = (status) => tasks.filter(t => t.status === status)
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       {/* Navbar */}
-      <div className="bg-gray-900 border-b border-gray-800 px-8 py-4 flex justify-between items-center shrink-0">
+      <div className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex justify-between items-center shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white transition">
+          <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white text-sm transition">
             ← Back
           </button>
           <span className="text-gray-600">/</span>
-          <h1 className="text-lg font-semibold">{project?.name}</h1>
+          <h1 className="text-base font-semibold">{project?.name}</h1>
+          <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded-full">{project?.status}</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={generateWeeklySummary}
+            className="bg-purple-800 hover:bg-purple-700 px-3 py-1.5 rounded-lg text-xs transition"
+          >
+            ✨ Weekly Summary
+          </button>
           <button
             onClick={() => navigate(`/projects/${projectId}/chat`)}
             className="bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm transition"
@@ -96,38 +126,40 @@ export default function ProjectBoard() {
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-lg text-sm font-medium transition"
+            className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium transition"
           >
             + New Task
           </button>
-          <button onClick={logout} className="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition">
+          <button onClick={logout} className="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition">
             Logout
           </button>
         </div>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex gap-4 p-6 overflow-x-auto flex-1">
+      {/* Board */}
+      <div className="flex gap-4 p-5 overflow-x-auto flex-1 items-start">
         {STATUSES.map(status => (
-          <div key={status} className="flex-shrink-0 w-72">
-            <div className={`border-t-2 ${STATUS_COLORS[status]} bg-gray-900 rounded-xl p-4`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-sm">{STATUS_LABELS[status]}</h3>
+          <div key={status} className="flex-shrink-0 w-68">
+            <div className={`border-t-4 ${STATUS_COLORS[status]} bg-gray-900 rounded-xl`}>
+              <div className="flex justify-between items-center px-4 pt-4 pb-3">
+                <h3 className="font-semibold text-sm tracking-wide">{STATUS_LABELS[status]}</h3>
                 <span className="bg-gray-800 text-gray-400 text-xs px-2 py-0.5 rounded-full">
                   {tasksByStatus(status).length}
                 </span>
               </div>
-
-              <div className="space-y-3">
+              <div className="px-3 pb-4 space-y-2 min-h-24">
                 {tasksByStatus(status).map(task => (
                   <div
                     key={task.id}
                     onClick={() => setSelectedTask(task)}
-                    className="bg-gray-800 hover:bg-gray-750 rounded-lg p-3 cursor-pointer border border-gray-700 hover:border-gray-500 transition"
+                    className="bg-gray-800 hover:bg-gray-750 rounded-lg p-3 cursor-pointer border border-gray-700 hover:border-blue-500 transition group"
                   >
-                    <p className="text-sm font-medium mb-2">{task.title}</p>
+                    <p className="text-sm font-medium mb-2 group-hover:text-blue-300 transition">{task.title}</p>
+                    {task.description && (
+                      <p className="text-xs text-gray-500 mb-2 line-clamp-2">{task.description}</p>
+                    )}
                     <div className="flex justify-between items-center">
-                      <span className={`text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PRIORITY_BADGE[task.priority]}`}>
                         {task.priority}
                       </span>
                       {task.dueDate && (
@@ -135,7 +167,7 @@ export default function ProjectBoard() {
                       )}
                     </div>
                     {task.assignee && (
-                      <p className="text-xs text-gray-500 mt-1">👤 {task.assignee}</p>
+                      <p className="text-xs text-gray-500 mt-2">👤 {task.assignee}</p>
                     )}
                   </div>
                 ))}
@@ -147,8 +179,8 @@ export default function ProjectBoard() {
 
       {/* Create Task Modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-lg border border-gray-700">
             <h3 className="text-lg font-semibold mb-4">Create New Task</h3>
             <form onSubmit={createTask} className="space-y-3">
               <input
@@ -162,7 +194,7 @@ export default function ProjectBoard() {
               <div className="relative">
                 <textarea
                   placeholder="Description (or use AI to generate)"
-                  className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none pr-28"
                   rows={4}
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}
@@ -171,32 +203,34 @@ export default function ProjectBoard() {
                   type="button"
                   onClick={generateDescription}
                   disabled={aiLoading || !form.title}
-                  className="absolute bottom-3 right-3 bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-xs px-2 py-1 rounded transition"
+                  className="absolute bottom-3 right-3 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-xs px-2 py-1 rounded-lg transition"
                 >
-                  {aiLoading ? 'Generating...' : '✨ AI Generate'}
+                  {aiLoading ? '...' : '✨ AI Generate'}
                 </button>
               </div>
-              <select
-                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.priority}
-                onChange={e => setForm({ ...form, priority: e.target.value })}
-              >
-                <option value="LOW">Low Priority</option>
-                <option value="MEDIUM">Medium Priority</option>
-                <option value="HIGH">High Priority</option>
-                <option value="CRITICAL">Critical</option>
-              </select>
-              <input
-                type="date"
-                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.dueDate}
-                onChange={e => setForm({ ...form, dueDate: e.target.value })}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.priority}
+                  onChange={e => setForm({ ...form, priority: e.target.value })}
+                >
+                  <option value="LOW">Low Priority</option>
+                  <option value="MEDIUM">Medium Priority</option>
+                  <option value="HIGH">High Priority</option>
+                  <option value="CRITICAL">Critical</option>
+                </select>
+                <input
+                  type="date"
+                  className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.dueDate}
+                  onChange={e => setForm({ ...form, dueDate: e.target.value })}
+                />
+              </div>
               <div className="flex gap-3 pt-1">
                 <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 py-2.5 rounded-lg font-medium transition">
                   Create Task
                 </button>
-                <button type="button" onClick={() => setShowCreate(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 py-2.5 rounded-lg font-medium transition">
+                <button type="button" onClick={() => setShowCreate(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 py-2.5 rounded-lg transition">
                   Cancel
                 </button>
               </div>
@@ -207,46 +241,81 @@ export default function ProjectBoard() {
 
       {/* Task Detail Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-lg border border-gray-700">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-semibold">{selectedTask.title}</h3>
-              <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-white">✕</button>
+              <h3 className="text-lg font-semibold pr-4">{selectedTask.title}</h3>
+              <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
             </div>
-            <p className="text-gray-400 text-sm mb-4">{selectedTask.description || 'No description'}</p>
+
+            {selectedTask.description && (
+              <p className="text-gray-400 text-sm mb-4 leading-relaxed">{selectedTask.description}</p>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-gray-800 rounded-lg p-3">
+                <p className="text-gray-500 text-xs mb-2">Move to</p>
+                <div className="flex flex-col gap-1">
+                  {STATUSES.filter(s => s !== selectedTask.status).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => updateStatus(selectedTask, s)}
+                      className="text-xs text-left px-2 py-1.5 rounded bg-gray-700 hover:bg-blue-700 transition"
+                    >
+                      → {STATUS_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-gray-500 text-xs mb-1">Current Status</p>
+                  <p className="text-sm font-medium">{STATUS_LABELS[selectedTask.status]}</p>
+                </div>
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-gray-500 text-xs mb-1">Priority</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${PRIORITY_BADGE[selectedTask.priority]}`}>
+                    {selectedTask.priority}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Status</p>
-                <select
-                  className="bg-transparent text-white outline-none w-full"
-                  value={selectedTask.status}
-                  onChange={e => {
-                    updateStatus(selectedTask.id, e.target.value)
-                    setSelectedTask({ ...selectedTask, status: e.target.value })
-                  }}
-                >
-                  {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-                </select>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Priority</p>
-                <p className={PRIORITY_COLORS[selectedTask.priority]}>{selectedTask.priority}</p>
-              </div>
               <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-gray-500 text-xs mb-1">Assignee</p>
                 <p>{selectedTask.assignee || 'Unassigned'}</p>
               </div>
               <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-gray-500 text-xs mb-1">Due Date</p>
-                <p>{selectedTask.dueDate || 'No due date'}</p>
+                <p>{selectedTask.dueDate || '—'}</p>
               </div>
             </div>
+
             <button
               onClick={() => setSelectedTask(null)}
               className="w-full bg-gray-800 hover:bg-gray-700 py-2 rounded-lg text-sm transition"
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Weekly Summary Modal */}
+      {showSummary && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-lg border border-gray-700 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">✨ Weekly Summary</h3>
+              <button onClick={() => setShowSummary(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+            </div>
+            {summaryLoading ? (
+              <p className="text-gray-400 text-sm">Generating summary...</p>
+            ) : (
+              <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{weeklySummary}</p>
+            )}
           </div>
         </div>
       )}

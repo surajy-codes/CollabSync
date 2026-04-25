@@ -11,6 +11,9 @@ export default function TeamPage() {
   const [projects, setProjects] = useState([])
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ name: '', description: '' })
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'MEMBER' })
+  const [inviteMsg, setInviteMsg] = useState('')
 
   useEffect(() => {
     api.get(`/teams/${teamId}`).then(res => setTeam(res.data))
@@ -24,6 +27,17 @@ export default function TeamPage() {
     setForm({ name: '', description: '' })
     setShowCreate(false)
   }
+
+  const inviteMember = async (e) => {
+  e.preventDefault()
+  try {
+    await api.post(`/teams/${teamId}/invite`, inviteForm)
+    setInviteMsg('Member invited successfully!')
+    setInviteForm({ email: '', role: 'MEMBER' })
+  } catch {
+    setInviteMsg('User not found or already a member.')
+  }
+}
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -47,12 +61,20 @@ export default function TeamPage() {
       <div className="max-w-5xl mx-auto px-8 py-10">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">Projects</h2>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition"
-          >
-            + New Project
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowInvite(true)}
+              className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+            >
+              + Invite Member
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+            >
+              + New Project
+            </button>
+          </div>
         </div>
 
         {projects.length === 0 ? (
@@ -86,7 +108,6 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* Create Project Modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
@@ -112,6 +133,49 @@ export default function TeamPage() {
                   Create
                 </button>
                 <button type="button" onClick={() => setShowCreate(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 py-2.5 rounded-lg font-medium transition">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {showInvite && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Invite Member</h3>
+            {inviteMsg && (
+              <p className={`text-sm mb-3 ${inviteMsg.includes('success') ? 'text-green-400' : 'text-red-400'}`}>
+                {inviteMsg}
+              </p>
+            )}
+            <form onSubmit={inviteMember} className="space-y-3">
+              <input
+                type="email"
+                placeholder="Email address"
+                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                value={inviteForm.email}
+                onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })}
+                required
+              />
+              <select
+                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                value={inviteForm.role}
+                onChange={e => setInviteForm({ ...inviteForm, role: e.target.value })}
+              >
+                <option value="MEMBER">Member</option>
+                <option value="VIEWER">Viewer</option>
+              </select>
+              <div className="flex gap-3 pt-1">
+                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 py-2.5 rounded-lg font-medium transition">
+                  Send Invite
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowInvite(false); setInviteMsg('') }}
+                  className="flex-1 bg-gray-800 hover:bg-gray-700 py-2.5 rounded-lg font-medium transition"
+                >
                   Cancel
                 </button>
               </div>
