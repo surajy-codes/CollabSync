@@ -110,6 +110,7 @@ public class ProjectService {
                 .name(project.getName())
                 .description(project.getDescription())
                 .status(project.getStatus().name())
+                .teamId(project.getTeam().getId())
                 .teamName(project.getTeam().getName())
                 .createdBy(project.getCreatedBy().getName())
                 .createdAt(project.getCreatedAt())

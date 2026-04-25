@@ -1,5 +1,6 @@
 package com.collabsync.backend.service;
 
+import com.collabsync.backend.dto.team.TeamMemberResponse;
 import com.collabsync.backend.dto.team.TeamRequest;
 import com.collabsync.backend.dto.team.TeamResponse;
 import com.collabsync.backend.entity.Team;
@@ -130,6 +131,17 @@ public class TeamService {
         if (member.getRole() != requiredRole) {
             throw new RuntimeException("You don't have permission to perform this action");
         }
+    }
+
+    public List<TeamMemberResponse> getMembers(Long teamId, Long userId) {
+        if (!teamMemberRepository.existsByTeamIdAndUserId(teamId, userId))
+            throw new RuntimeException("Access denied");
+        return teamMemberRepository.findAllWithUserByTeamId(teamId)
+                .stream().map(m -> TeamMemberResponse.builder()
+                        .userId(m.getUser().getId())
+                        .userName(m.getUser().getName())
+                        .role(m.getRole().name())
+                        .build()).toList();
     }
 
     private TeamResponse mapToResponse(Team team) {

@@ -1,6 +1,8 @@
 package com.collabsync.backend.service;
 
+import com.collabsync.backend.entity.Project;
 import com.collabsync.backend.entity.Task;
+import com.collabsync.backend.repository.ProjectRepository;
 import com.collabsync.backend.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +20,8 @@ public class AiService {
 
     private final WebClient.Builder webClientBuilder;
     private final TaskRepository taskRepository;
+    private final ProjectRepository projectRepository;
+
 
     @Value("${app.gemini.api-key}")
     private String apiKey;
@@ -67,24 +71,35 @@ public class AiService {
                 .filter(t -> t.getUpdatedAt().isAfter(oneWeekAgo))
                 .collect(Collectors.toList());
 
+//        Project project = taskRepository.findAll().stream()
+//                .filter(t -> t.getProject().getId().equals(projectId))
+//                .map(Task::getProject)
+//                .findFirst()
+//                .orElse(null);
+
+        String projectName = projectRepository.findById(projectId)
+                .map(p -> p.getName())
+                .orElse("the project");
+        String currentDate = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy"));
+
         if (recentTasks.isEmpty()) {
-            return "No tasks were updated in the past 7 days for this project.";
+            return "No tasks were updated in the past 7 days for " + projectName + ".";
         }
 
         String taskList = recentTasks.stream()
-                .map(t -> String.format("- [%s] %s (Priority: %s)",
-                        t.getStatus(), t.getTitle(), t.getPriority()))
+                .map(t -> String.format("- [%s] %s (Priority: %s)", t.getStatus(), t.getTitle(), t.getPriority()))
                 .collect(Collectors.joining("\n"));
 
         String prompt = String.format("""
-                You are a project management assistant.
-                Write a brief weekly progress summary (2-3 paragraphs) for a software project
-                based on the following tasks updated in the past 7 days:
-                
-                %s
-                
-                Keep it professional and highlight key progress and any blockers.
-                """, taskList);
+            You are a project management assistant.
+            Write a weekly progress summary for the project "%s" as of %s.
+            Do NOT use placeholder text like [Project Name] or [Date] — use the actual values provided.
+            
+            Tasks updated in the past 7 days:
+            %s
+            
+            Write 2-3 paragraphs. Be specific, professional, and mention actual task names.
+            """, projectName, currentDate, taskList);
 
         return callGemini(prompt);
     }

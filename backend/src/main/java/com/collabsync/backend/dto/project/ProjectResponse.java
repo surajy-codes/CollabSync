@@ -14,4 +14,5 @@ public class ProjectResponse {
     private String teamName;
     private String createdBy;
     private LocalDateTime createdAt;
+    private Long teamId;
 }

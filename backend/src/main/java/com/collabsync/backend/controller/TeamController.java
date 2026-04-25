@@ -1,5 +1,6 @@
 package com.collabsync.backend.controller;
 
+import com.collabsync.backend.dto.team.TeamMemberResponse;
 import com.collabsync.backend.dto.team.TeamRequest;
 import com.collabsync.backend.dto.team.TeamResponse;
 import com.collabsync.backend.entity.TeamMember.Role;
@@ -29,6 +30,12 @@ public class TeamController {
     public ResponseEntity<TeamResponse> createTeam(@Valid @RequestBody TeamRequest request,
                                                    @RequestHeader("Authorization") String auth) {
         return ResponseEntity.ok(teamService.createTeam(request, getUserId(auth)));
+    }
+
+    @GetMapping("/{teamId}/members")
+    public ResponseEntity<List<TeamMemberResponse>> getMembers(@PathVariable Long teamId,
+                                                               @RequestHeader("Authorization") String auth) {
+        return ResponseEntity.ok(teamService.getMembers(teamId, getUserId(auth)));
     }
 
     @GetMapping
